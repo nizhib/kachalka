@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"github.com/goware/urlx"
 	"github.com/nfnt/resize"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/image/webp"
@@ -37,7 +38,7 @@ type Item struct {
 	id, url string
 }
 
-func recordToItem(record []string, idFields string, urlField int) Item {
+func recordToItem(record []string, idFields string, urlField int) (Item, error) {
 	var parts []string
 	for _, field := range strings.Split(idFields, ",") {
 		idx, err := strconv.Atoi(field)
@@ -50,8 +51,16 @@ func recordToItem(record []string, idFields string, urlField int) Item {
 		parts = append(parts, record[idx])
 	}
 	itemId := strings.Join(parts, "$")
-	itemPath := record[(len(record)+urlField)%len(record)]
-	return Item{itemId, itemPath}
+	urlPart := record[(len(record)+urlField)%len(record)]
+	url, err := urlx.Parse(urlPart)
+	if err != nil {
+		return Item{itemId, urlPart}, err
+	}
+	itemUrl, err := urlx.Normalize(url)
+	if err != nil {
+		return Item{itemId, urlPart}, err
+	}
+	return Item{itemId, itemUrl}, err
 }
 
 func UrlToPath(url string, root string) string {
@@ -86,18 +95,23 @@ func removeTransparency(img *image.Image) *image.RGBA {
 }
 
 func process(record []string, options ProcessOptions, busy *sync.WaitGroup) (string, error) {
-	item := recordToItem(record, options.idFields, options.urlField)
-	filePath := UrlToPath(item.url, options.outputRoot)
-
-	// create all the directories
-	err := os.MkdirAll(path.Dir(filePath), os.ModePerm)
+	// extract the fields needed from the record
+	item, err := recordToItem(record, options.idFields, options.urlField)
 	if err != nil {
 		return item.url, err
 	}
 
+	// define the filepath
+	filePath := UrlToPath(item.url, options.outputRoot)
+
 	// finish if we are resuming and the file exists
 	if _, err := os.Stat(filePath); options.resume && err == nil {
 		return item.url, errors.New("process: skipping")
+	}
+
+	// create all subdirectories
+	if err := os.MkdirAll(path.Dir(filePath), os.ModePerm); err != nil {
+		return item.url, err
 	}
 
 	// fetch the image from the url
@@ -110,7 +124,7 @@ func process(record []string, options ProcessOptions, busy *sync.WaitGroup) (str
 	img, _, err := image.Decode(bytes.NewBuffer(body))
 	if err != nil {
 		if err.Error() == "image: unknown format" {
-
+			// try the experimental webp decoding
 			img, err = webp.Decode(bytes.NewBuffer(body))
 			if err != nil {
 				return item.url, err
