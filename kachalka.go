@@ -46,58 +46,48 @@ func worker(jobs <-chan []string, opt ProcessOptions, done <-chan struct{}, busy
 
 func main() {
 	// parse command line arguments
-	var filePath string
-	var outputRoot string
-	var idFields string
-	var urlField int
-	var jpegQuality int
-	var maxSize uint
-	var workerCount int
-	var resume bool
-	var verbose bool
-	var progress bool
-	flag.StringVar(&filePath, "i", "", "index file path")
-	flag.StringVar(&outputRoot, "o", "", "images output root")
-	flag.StringVar(&idFields, "id", defaultIdFields, "id fields")
-	flag.IntVar(&urlField, "url", defaultUrlField, "url field")
-	flag.IntVar(&jpegQuality, "quality", defaultJpegQuality, "output images quality")
-	flag.UintVar(&maxSize, "maxSize", defaultMaxSize, "output images quality")
-	flag.IntVar(&workerCount, "w", 2*runtime.NumCPU(), "concurrent workers")
-	flag.BoolVar(&resume, "resume", false, "resume the run")
-	flag.BoolVar(&verbose, "verbose", false, "log the results")
-	flag.BoolVar(&progress, "progress", false, "show progressbar")
+	filePath := flag.String("i", "", "index file path")
+	outputRoot := flag.String("id", defaultIdFields, "id fields")
+	idFields := flag.String("o", "", "images output root")
+	urlField := flag.Int("url", defaultUrlField, "url field")
+	jpegQuality := flag.Int("quality", defaultJpegQuality, "output images quality")
+	maxSize := flag.Uint("maxSize", defaultMaxSize, "output images size limit")
+	workerCount := flag.Int("w", 2*runtime.NumCPU(), "concurrent workers")
+	resume := flag.Bool("resume", false, "resume the last run if any")
+	verbose := flag.Bool("verbose", false, "log the results")
+	progress := flag.Bool("progress", false, "show progressbar")
 	flag.Parse()
 	// check the arguments
-	if filePath == "" {
+	if *filePath == "" {
 		log.Fatalln("index file path required")
 	}
-	if outputRoot == "" {
+	if *outputRoot == "" {
 		log.Fatalln("images output root required")
 	}
-	if verbose && progress {
+	if *verbose && *progress {
 		log.Fatalln("using both verbose and progress will make a mess")
 	}
 	// just log if progress bar is absent
-	if !progress {
-		verbose = true
+	if !*progress {
+		*verbose = true
 	}
 	// show no less than warnings otherwise
-	if !verbose {
+	if !*verbose {
 		log.SetLevel(log.WarnLevel)
 	}
 
 	// compile the options
 	options := ProcessOptions{
-		outputRoot,
-		idFields,
-		urlField,
-		jpegQuality,
-		maxSize,
-		resume,
+		*outputRoot,
+		*idFields,
+		*urlField,
+		*jpegQuality,
+		*maxSize,
+		*resume,
 	}
 
 	// open the input file
-	indexFile, err := os.Open(filePath)
+	indexFile, err := os.Open(*filePath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -139,17 +129,17 @@ func main() {
 	}()
 
 	// create input channel for the workers
-	jobs := make(chan []string, workerCount)
+	jobs := make(chan []string, *workerCount)
 
 	// define a progressbar for the workers
 	var bar *Bar
-	if progress {
+	if *progress {
 		bar = progressbar.Default(lineCount)
 	}
 
 	// launch the workers
-	workers.Add(workerCount)
-	for i := 0; i < workerCount; i++ {
+	workers.Add(*workerCount)
+	for i := 0; i < *workerCount; i++ {
 		go func() {
 			defer workers.Done()
 			worker(jobs, options, done, &busy, bar)
