@@ -47,8 +47,8 @@ func worker(jobs <-chan []string, opt ProcessOptions, done <-chan struct{}, busy
 func main() {
 	// parse command line arguments
 	filePath := flag.String("i", "", "index file path")
-	outputRoot := flag.String("id", defaultIdFields, "id fields")
-	idFields := flag.String("o", "", "images output root")
+	outputRoot := flag.String("o", "", "images output root")
+	idFields := flag.String("id", defaultIdFields, "id fields")
 	urlField := flag.Int("url", defaultUrlField, "url field")
 	jpegQuality := flag.Int("quality", defaultJpegQuality, "output images quality")
 	maxSize := flag.Uint("maxSize", defaultMaxSize, "output images size limit")
