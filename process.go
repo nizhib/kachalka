@@ -38,6 +38,15 @@ type Item struct {
 	id, url string
 }
 
+func NormalizeUrl(url string) (string, error) {
+	parsed, err := urlx.Parse(url)
+	if err != nil {
+		return "", err
+	}
+	normalized, err := urlx.Normalize(parsed)
+	return normalized, err
+}
+
 func recordToItem(record []string, idFields string, urlField int) (Item, error) {
 	var parts []string
 	for _, field := range strings.Split(idFields, ",") {
@@ -52,15 +61,11 @@ func recordToItem(record []string, idFields string, urlField int) (Item, error) 
 	}
 	itemId := strings.Join(parts, "$")
 	urlPart := record[(len(record)+urlField)%len(record)]
-	url, err := urlx.Parse(urlPart)
+	imageUrl, err := NormalizeUrl(urlPart)
 	if err != nil {
 		return Item{itemId, urlPart}, err
 	}
-	itemUrl, err := urlx.Normalize(url)
-	if err != nil {
-		return Item{itemId, urlPart}, err
-	}
-	return Item{itemId, itemUrl}, err
+	return Item{itemId, imageUrl}, err
 }
 
 func UrlToPath(url string, root string) string {
