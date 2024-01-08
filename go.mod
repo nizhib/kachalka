@@ -1,4 +1,4 @@
-module kachalka
+module github.com/nizhib/kachalka
 
 go 1.19
 
